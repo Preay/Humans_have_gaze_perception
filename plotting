@@ -1,0 +1,64 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+# Setup
+gaze_range = np.linspace(-30, 30, 1000)
+prior = norm.pdf(gaze_range, loc=0, scale=10)
+
+# Test conditions
+pupil_angles = [-20, -10, 0, 10, 20]
+head_angles = [-30, -15, 0, 15, 30]
+
+clear_noise = 2.5
+noisy_noise = 8.0
+
+# Storage
+clear_pupil_probs, noisy_pupil_probs = [], []
+clear_head_probs, noisy_head_probs = [], []
+
+# Pupil angle variation (fixed head = 0)
+for pupil in pupil_angles:
+    for noise, store in zip([clear_noise, noisy_noise], [clear_pupil_probs, noisy_pupil_probs]):
+        adjusted = pupil + 0.25 * 0  # head = 0
+        likelihood = norm.pdf(gaze_range, loc=adjusted, scale=noise)
+        posterior = prior * likelihood
+        posterior /= np.sum(posterior)
+        prob = np.sum(posterior[(gaze_range >= -5) & (gaze_range <= 5)])
+        store.append(prob)
+
+# Head rotation variation (fixed pupil = 0)
+for head in head_angles:
+    for noise, store in zip([clear_noise, noisy_noise], [clear_head_probs, noisy_head_probs]):
+        adjusted = 0 + 0.25 * head
+        likelihood = norm.pdf(gaze_range, loc=adjusted, scale=noise)
+        posterior = prior * likelihood
+        posterior /= np.sum(posterior)
+        prob = np.sum(posterior[(gaze_range >= -5) & (gaze_range <= 5)])
+        store.append(prob)
+
+# Plotting
+fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+
+# Left: Pupil
+axs[0].plot(pupil_angles, clear_pupil_probs, 'o-', label="Clear Vision", linewidth=2)
+axs[0].plot(pupil_angles, noisy_pupil_probs, 's--', label="Noisy Vision", linewidth=2)
+axs[0].set_title("Effect of Pupil Orientation")
+axs[0].set_xlabel("Pupil Angle (°)")
+axs[0].set_ylabel("Probability of Perceived Direct Gaze")
+axs[0].legend()
+axs[0].grid(True)
+axs[0].set_ylim(0, 1.05)
+
+# Right: Head
+axs[1].plot(head_angles, clear_head_probs, 'o-', label="Clear Vision", linewidth=2)
+axs[1].plot(head_angles, noisy_head_probs, 's--', label="Noisy Vision", linewidth=2)
+axs[1].set_title("Effect of Head Rotation")
+axs[1].set_xlabel("Head Angle (°)")
+axs[1].legend()
+axs[1].grid(True)
+axs[1].set_ylim(0, 1.05)
+
+plt.suptitle("Gaze Perception Bias: Clear vs Noisy Conditions", fontsize=16)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()

@@ -1,0 +1,68 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+import pandas as pd
+
+# Gaze domain (output space)
+gaze_range = np.linspace(-30, 30, 1000)
+
+# Fixed Prior: humans expect direct gaze
+prior = norm.pdf(gaze_range, loc=0, scale=10)
+
+# Variables
+gaze_angles = [-15, -7.5, 0, 7.5, 15]  # actual pupil gaze
+head_rotations = [-30, 0, 30]          # head orientation
+noise_conditions = {
+    "Clear": 2.5,   # low uncertainty
+    "Noisy": 7.0    # high uncertainty
+}
+
+# Collect results
+data = []
+
+for head_angle in head_rotations:
+    for gaze_angle in gaze_angles:
+        for noise_label, std in noise_conditions.items():
+
+            # Adjustment based on head angle (biases perception slightly toward head)
+            adjusted_gaze = gaze_angle + 0.25 * head_angle
+
+            # Likelihood (centered on adjusted gaze)
+            likelihood = norm.pdf(gaze_range, loc=adjusted_gaze, scale=std)
+            posterior = prior * likelihood
+            posterior /= np.sum(posterior)
+
+            perceived_gaze = gaze_range[np.argmax(posterior)]
+            bias = perceived_gaze - gaze_angle
+
+            data.append({
+                "Gaze Angle": gaze_angle,
+                "Head Rotation": head_angle,
+                "Noise": noise_label,
+                "Perceived Gaze": perceived_gaze,
+                "Bias": bias
+            })
+
+# Convert to DataFrame
+df = pd.DataFrame(data)
+
+# 🎯 Plot Bias vs Gaze Angle grouped by Head Rotation and Noise
+fig, axes = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
+for i, head in enumerate(head_rotations):
+    ax = axes[i]
+    subset = df[df["Head Rotation"] == head]
+    for noise in noise_conditions.keys():
+        noise_data = subset[subset["Noise"] == noise]
+        ax.plot(noise_data["Gaze Angle"], noise_data["Bias"], marker='o', label=f"{noise}")
+    ax.axhline(0, color='gray', linestyle='--')
+    ax.set_title(f"Head Rotation: {head}°")
+    ax.set_xlabel("Actual Gaze Angle (°)")
+    if i == 0:
+        ax.set_ylabel("Bias (Perceived - Actual) (°)")
+    ax.legend()
+    ax.grid(True)
+
+plt.suptitle("Perceptual Gaze Bias: Head Rotation × Noise × Gaze", fontsize=14)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()
+
